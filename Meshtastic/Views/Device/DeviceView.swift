@@ -53,10 +53,6 @@ struct DeviceView: View {
 									VStack(alignment: .center) {
 										CircleText(text: node?.user?.shortName?.addingVariationSelectors ?? "?", color: Color(UIColor(hex: UInt32(node?.num ?? 0))), circleSize: 90)
 											.padding(.trailing, 5)
-										if node?.latestDeviceMetrics != nil {
-											BatteryCompact(batteryLevel: node?.latestDeviceMetrics?.batteryLevel ?? 0, font: .caption, iconFont: .callout, color: .accentColor)
-												.padding(.trailing, 5)
-										}
 									}
 									.padding(.trailing)
 									VStack(alignment: .leading) {
@@ -136,6 +132,9 @@ struct DeviceView: View {
 										default:
 											EmptyView()
 										}
+									}
+									if let node, node.telemetries?.count ?? 0 > 0 {
+										BatteryGauge(node: node)
 									}
 								}
 							}
@@ -278,12 +277,6 @@ struct DeviceView: View {
 					.accessibilityElement(children: .combine)
 					Section("Node") {
 						HStack(alignment: .center) {
-							Spacer()
-							CircleText(
-								text: node.user?.shortName ?? "?",
-								color: Color(UIColor(hex: UInt32(node.num))),
-								circleSize: 75
-							)
 							if node.snr != 0 && !node.viaMqtt && node.hopsAway == 0 {
 								Spacer()
 								VStack {
@@ -298,10 +291,6 @@ struct DeviceView: View {
 										.font(.caption)
 								}
 								.accessibilityElement(children: .combine)
-							}
-							if node.telemetries?.count ?? 0 > 0 {
-								Spacer()
-								BatteryGauge(node: node)
 							}
 							Spacer()
 						}

@@ -32,9 +32,12 @@ Redesigning Meshtastic iOS app for Burning Man 2026 and broader community use. M
 ## Changes Made
 - ✅ Renamed Connect → Device (file: Device.swift)
 - ✅ Renamed Mesh Map → Map
-- 🔄 Moving Nodes detail view wholesale to Device tab
-- 🔄 Filtering connected device out of Nodes list
+- ✅ Moved ‘Nodes’ detail view for connected device wholesale to Device tab
+- ✅ Filtered connected device out of Nodes list
+- ✅ Move battery display to top card in Device tab, removed BatteryCompact from underneath the avatar
 - ⏳ Will hide Nodes tab after consolidation
+- ⏳ Will need to adjust visual design of battery indicator for instant readability
+- ⏳ Will need to continue to simplify device tab including removing redundant avatar
 
 ## Architecture Notes
 - SwiftUI views
