@@ -29,7 +29,7 @@ struct ContentView: View {
 			.tag(NavigationState.Tab.messages)
 			.badge(appState.totalUnreadMessages)
 
-			Connect(
+			DeviceView(
 					router: appState.router
 				)
 				.tabItem {

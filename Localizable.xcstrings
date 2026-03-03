@@ -9814,6 +9814,7 @@
       }
     },
     "Connect" : {
+      "extractionState" : "stale",
       "localizations" : {
         "ru" : {
           "stringUnit" : {

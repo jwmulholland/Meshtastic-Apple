@@ -1,5 +1,5 @@
 //
-//  Connect.swift
+//  Device.swift
 //  Meshtastic Apple
 //
 //  Copyright(c) Garth Vander Houwen 8/18/21.
@@ -16,7 +16,7 @@ import TipKit
 import ActivityKit
 #endif
 
-struct Connect: View {
+struct DeviceView: View {
 	
 	@Environment(\.managedObjectContext) var context
 	@EnvironmentObject var accessoryManager: AccessoryManager
@@ -27,7 +27,16 @@ struct Connect: View {
 	@State var invalidFirmwareVersion = false
 	@State var liveActivityStarted = false
 	@ObservedObject var manualConnections = ManualConnectionList.shared
-	
+	@State private var showingShutdownConfirm: Bool = false
+	@State private var showingRebootConfirm: Bool = false
+	@State private var dateFormatRelative: Bool = true
+	var modemPreset: ModemPresets = ModemPresets(rawValue: UserDefaults.modemPreset) ?? ModemPresets.longFast
+	private static let relativeFormatter: RelativeDateTimeFormatter = {
+		let formatter = RelativeDateTimeFormatter()
+		formatter.unitsStyle = .full
+		return formatter
+	}()
+
 	var body: some View {
 		NavigationStack {
 			VStack(spacing: 0) {
@@ -261,7 +270,336 @@ struct Connect: View {
 						}
 					}
 					.textCase(nil)
-					
+
+				if let node, accessoryManager.isConnected {
+					Section("Hardware") {
+						NodeInfoItem(node: node)
+					}
+					.accessibilityElement(children: .combine)
+					Section("Node") {
+						HStack(alignment: .center) {
+							Spacer()
+							CircleText(
+								text: node.user?.shortName ?? "?",
+								color: Color(UIColor(hex: UInt32(node.num))),
+								circleSize: 75
+							)
+							if node.snr != 0 && !node.viaMqtt && node.hopsAway == 0 {
+								Spacer()
+								VStack {
+									let signalStrength = getLoRaSignalStrength(snr: node.snr, rssi: node.rssi, preset: modemPreset)
+									LoRaSignalStrengthIndicator(signalStrength: signalStrength)
+									Text("Signal \(signalStrength.description)").font(.footnote)
+									Text("SNR \(String(format: "%.2f", node.snr))dB")
+										.foregroundColor(getSnrColor(snr: node.snr, preset: modemPreset))
+										.font(.caption)
+									Text("RSSI \(node.rssi)dB")
+										.foregroundColor(getRssiColor(rssi: node.rssi))
+										.font(.caption)
+								}
+								.accessibilityElement(children: .combine)
+							}
+							if node.telemetries?.count ?? 0 > 0 {
+								Spacer()
+								BatteryGauge(node: node)
+							}
+							Spacer()
+						}
+						.accessibilityElement(children: .combine)
+						.listRowSeparator(.hidden)
+						if let user = node.user, !user.keyMatch {
+							Label {
+								VStack(alignment: .leading) {
+									Text("Public Key Mismatch")
+										.font(.title3)
+										.foregroundStyle(.red)
+									Text("Verify who you are messaging with by comparing public keys in person or over the phone. The most recent public key for this node does not match the previously recorded key. You can delete the node and let it exchange keys again if the key change was due to a factory reset or other intentional action but this also may indicate a more serious security problem.")
+										.foregroundStyle(.secondary)
+										.font(.callout)
+								}
+								.accessibilityElement(children: .combine)
+							} icon: {
+								Image(systemName: "key.slash.fill")
+									.symbolRenderingMode(.multicolor)
+									.foregroundStyle(.red)
+							}
+						}
+						HStack {
+							Label {
+								Text("Node Number")
+							} icon: {
+								Image(systemName: "number")
+									.symbolRenderingMode(.hierarchical)
+							}
+							Spacer()
+							Text(String(node.num))
+								.textSelection(.enabled)
+						}
+						.accessibilityElement(children: .combine)
+						HStack {
+							Label {
+								Text("User Id")
+							} icon: {
+								Image(systemName: "person")
+									.symbolRenderingMode(.multicolor)
+							}
+							Spacer()
+							Text(node.num.toHex())
+								.textSelection(.enabled)
+						}
+						.accessibilityElement(children: .combine)
+						if let user = node.user, user.keyMatch {
+							let publicKey = node.securityConfig?.publicKey?.base64EncodedString() ?? ""
+							HStack {
+								Label {
+									Text("Public Key")
+								} icon: {
+									Image(systemName: "lock.fill")
+										.foregroundColor(.green)
+								}
+								Spacer()
+								Button(action: {
+									context.perform {
+										UIPasteboard.general.string = publicKey
+									}
+								}) {
+									HStack {
+										Image(systemName: "key.horizontal.fill")
+										Text("Copy")
+									}
+								}
+							}
+							.accessibilityElement(children: .combine)
+						}
+						if let metadata = node.metadata {
+							HStack {
+								Label {
+									Text("Firmware Version")
+								} icon: {
+									Image(systemName: "memorychip")
+										.symbolRenderingMode(.multicolor)
+								}
+								Spacer()
+								Text(metadata.firmwareVersion ?? "Unknown".localized)
+							}
+							.accessibilityElement(children: .combine)
+						}
+						if let role = node.user?.role, let deviceRole = DeviceRoles(rawValue: Int(role)) {
+							HStack {
+								Label {
+									Text("Role")
+								} icon: {
+									Image(systemName: deviceRole.systemName)
+										.symbolRenderingMode(.multicolor)
+								}
+								Spacer()
+								Text(deviceRole.name)
+							}
+							.accessibilityElement(children: .combine)
+						}
+						if node.user?.unmessagable ?? false {
+							HStack {
+								Label {
+									Text("Messaging")
+								} icon: {
+									Image(systemName: "iphone.slash")
+										.symbolRenderingMode(.multicolor)
+								}
+								Spacer()
+								Text("Unmonitored")
+							}
+							.accessibilityElement(children: .combine)
+						}
+						if let dm = node.telemetries?.filtered(using: NSPredicate(format: "metricsType == 0")).lastObject as? TelemetryEntity, let uptimeSeconds = dm.uptimeSeconds {
+							HStack {
+								Label {
+									Text("\("Uptime".localized)")
+								} icon: {
+									Image(systemName: "checkmark.circle.fill")
+										.foregroundColor(.green)
+										.symbolRenderingMode(.hierarchical)
+								}
+								Spacer()
+								let now = Date.now
+								let later = now + TimeInterval(uptimeSeconds)
+								let uptime = (now..<later).formatted(.components(style: .narrow))
+								Text(uptime)
+									.textSelection(.enabled)
+							}
+							.accessibilityElement(children: .combine)
+						}
+						if let firstHeard = node.firstHeard, firstHeard.timeIntervalSince1970 > 0 && firstHeard < Calendar.current.date(byAdding: .year, value: 1, to: Date())! {
+							HStack {
+								Label {
+									Text("First heard")
+								} icon: {
+									Image(systemName: "clock")
+										.symbolRenderingMode(.multicolor)
+								}
+								Spacer()
+								if dateFormatRelative, let text = DeviceView.relativeFormatter.string(for: firstHeard) {
+									Text(text)
+										.textSelection(.enabled)
+								} else {
+									Text(firstHeard.formatted())
+										.textSelection(.enabled)
+								}
+							}
+							.accessibilityElement(children: .combine)
+							.onTapGesture { dateFormatRelative.toggle() }
+						}
+						if let lastHeard = node.lastHeard, lastHeard.timeIntervalSince1970 > 0 && lastHeard < Calendar.current.date(byAdding: .year, value: 1, to: Date())! {
+							HStack {
+								Label {
+									Text("Last heard")
+								} icon: {
+									Image(systemName: "clock.arrow.circlepath")
+										.symbolRenderingMode(.multicolor)
+								}
+								Spacer()
+								if dateFormatRelative, let text = DeviceView.relativeFormatter.string(for: lastHeard) {
+									if lastHeard.formatted() != "Unknown Age".localized {
+										Text(text)
+											.textSelection(.enabled)
+									}
+								} else {
+									Text(lastHeard.formatted())
+										.textSelection(.enabled)
+								}
+							}
+							.accessibilityElement(children: .combine)
+							.onTapGesture { dateFormatRelative.toggle() }
+						}
+					}
+					Section("Logs") {
+						NavigationLink {
+							DeviceMetricsLog(node: node)
+						} label: {
+							Label {
+								Text("Device Metrics Log")
+							} icon: {
+								Image(systemName: "flipphone")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasDeviceMetrics)
+						NavigationLink {
+							NodeMapSwiftUI(node: node, showUserLocation: true)
+						} label: {
+							Label {
+								Text("Node Map")
+							} icon: {
+								Image(systemName: "map")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasPositions)
+						NavigationLink {
+							PositionLog(node: node)
+						} label: {
+							Label {
+								Text("Position Log")
+							} icon: {
+								Image(systemName: "mappin.and.ellipse")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasPositions)
+						NavigationLink {
+							EnvironmentMetricsLog(node: node)
+						} label: {
+							Label {
+								Text("Environment Metrics Log")
+							} icon: {
+								Image(systemName: "cloud.sun.rain")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasEnvironmentMetrics)
+						NavigationLink {
+							TraceRouteLog(node: node)
+						} label: {
+							Label {
+								Text("Trace Route Log")
+							} icon: {
+								Image(systemName: "signpost.right.and.left")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(node.traceRoutes?.count ?? 0 == 0)
+						NavigationLink {
+							PowerMetricsLog(node: node)
+						} label: {
+							Label {
+								Text("Power Metrics Log")
+							} icon: {
+								Image(systemName: "bolt")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasPowerMetrics)
+						NavigationLink {
+							DetectionSensorLog(node: node)
+						} label: {
+							Label {
+								Text("Detection Sensor Log")
+							} icon: {
+								Image(systemName: "sensor")
+									.symbolRenderingMode(.multicolor)
+							}
+						}
+						.disabled(!node.hasDetectionSensorMetrics)
+					}
+					if let metadata = node.metadata {
+						Section("Administration") {
+							if metadata.canShutdown {
+								Button {
+									showingShutdownConfirm = true
+								} label: {
+									Label("Power Off", systemImage: "power")
+								}.confirmationDialog(
+									"Are you sure?",
+									isPresented: $showingShutdownConfirm
+								) {
+									Button("Shutdown Node?", role: .destructive) {
+										Task {
+											do {
+												try await accessoryManager.sendShutdown(
+													fromUser: node.user!,
+													toUser: node.user!
+												)
+											} catch {
+												Logger.mesh.warning("Shutdown Failed")
+											}
+										}
+									}
+								}
+							}
+							Button {
+								showingRebootConfirm = true
+							} label: {
+								Label("Reboot", systemImage: "arrow.triangle.2.circlepath")
+							}.confirmationDialog(
+								"Are you sure?",
+								isPresented: $showingRebootConfirm
+							) {
+								Button("Reboot node?", role: .destructive) {
+									Task {
+										do {
+											try await accessoryManager.sendReboot(
+												fromUser: node.user!,
+												toUser: node.user!
+											)
+										} catch {
+											Logger.mesh.warning("Reboot Failed")
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
 					if !(accessoryManager.isConnected || accessoryManager .isConnecting) {
 						Group {
 							Section(header: HStack {
@@ -323,7 +661,7 @@ struct Connect: View {
 				
 			}
 			.background(Color(.systemGroupedBackground))
-			.navigationTitle("Connect")
+			.navigationTitle("Device")
 			.navigationBarItems(
 				leading: MeshtasticLogo(),
 				trailing: ZStack {

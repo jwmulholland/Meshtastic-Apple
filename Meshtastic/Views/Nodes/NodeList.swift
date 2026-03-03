@@ -190,8 +190,8 @@ fileprivate struct FilteredNodeList: View {
 	// The body of the view
 	var body: some View {
 		// If the connected node passes filters, always show it first
-		let nodesWithConnectedFirst = nodes.filter { $0.num == accessoryManager.activeDeviceNum } + nodes.filter { $0.num != accessoryManager.activeDeviceNum }
-		List(nodesWithConnectedFirst, id: \.self, selection: $selectedNode) { node in
+		let otherNodes = nodes.filter { $0.num != accessoryManager.activeDeviceNum }
+		List(otherNodes, id: \.self, selection: $selectedNode) { node in
 			NavigationLink(value: node) {
 				NodeListItem(
 					node: node,
