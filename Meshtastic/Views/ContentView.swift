@@ -29,13 +29,11 @@ struct ContentView: View {
 			.tag(NavigationState.Tab.messages)
 			.badge(appState.totalUnreadMessages)
 
-			DeviceView(
-					router: appState.router
-				)
+			MeshMap(router: appState.router)
 				.tabItem {
-					Label("Device", systemImage: "link")
+					Label("Map", systemImage: "map")
 				}
-				.tag(NavigationState.Tab.connect)
+				.tag(NavigationState.Tab.map)
 
 			NodeList(
 				router: appState.router
@@ -45,11 +43,13 @@ struct ContentView: View {
 			}
 			.tag(NavigationState.Tab.nodes)
 
-			MeshMap(router: appState.router)
+			DeviceView(
+					router: appState.router
+				)
 				.tabItem {
-					Label("Map", systemImage: "map")
+					Label("Device", systemImage: "link")
 				}
-				.tag(NavigationState.Tab.map)
+				.tag(NavigationState.Tab.connect)
 
 			Settings(
 				router: appState.router
