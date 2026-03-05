@@ -8,97 +8,38 @@
 import SwiftUI
 import CoreData
 import OSLog
-import TipKit
 
 struct Messages: View {
 
 	@Environment(\.managedObjectContext) var context
-	@Environment(\.colorScheme) private var colorScheme
-	@ObservedObject	var router: Router
+	@ObservedObject var router: Router
 	@Binding var unreadChannelMessages: Int
 	@Binding var unreadDirectMessages: Int
 	@State var node: NodeInfoEntity?
-	@State private var userSelection: UserEntity? // Nothing selected by default.
-	@State private var channelSelection: ChannelEntity? // Nothing selected by default.
-
-	@State private var columnVisibility = NavigationSplitViewVisibility.all
+	@State private var destinationSelection: MessageDestination?
 
 	var body: some View {
-		NavigationSplitView(columnVisibility: $columnVisibility) {
-			List(selection: $router.navigationState.messages) {
-				NavigationLink(value: MessagesNavigationState.channels()) {
-					Spacer()
-					Label {
-						Text("Channels")
-							.badge(unreadChannelMessages)
-							.font(.title2)
-							.padding()
-					} icon: {
-						Image(systemName: "person.2")
-							.symbolRenderingMode(.hierarchical)
-							.foregroundColor(.accentColor)
-							.font(.title2)
-							.padding()
-					}
-				}
-				.alignmentGuide(.listRowSeparatorLeading) {
-					$0[.leading]
-				}
-				NavigationLink(value: MessagesNavigationState.directMessages()) {
-					Spacer()
-					Label {
-						Text("Direct Messages")
-							.badge(unreadDirectMessages)
-							.font(.title2)
-							.padding()
-					} icon: {
-						Image(systemName: "person")
-							.symbolRenderingMode(.hierarchical)
-							.foregroundColor(.accentColor)
-							.font(.title2)
-							.padding()
-					}
-				}
-				.alignmentGuide(.listRowSeparatorLeading) {
-					$0[.leading]
-				}
-				Spacer()
-				TipView(MessagesTip(), arrowEdge: .top)
-					.tipViewStyle(PersistentTip())
-					.listRowSeparator(.hidden)
-				Spacer()
-					.listRowSeparator(.hidden)
-			}
-			.listStyle(.plain)
-			.navigationTitle("Messages")
-			.navigationBarTitleDisplayMode(.large)
-			.navigationBarItems(leading: MeshtasticLogo())
-		} content: {
-			switch router.navigationState.messages {
-			case .channels(let channelId, let messageId):
-				ChannelList(node: $node, channelSelection: $channelSelection)
-					// Removed navigationTitle and navigationBarTitleDisplayMode here.
-					// ChannelList.swift now handles this within its own NavigationStack.
-			case .directMessages(let userNum, let messageId):
-				UserList(node: $node, userSelection: $userSelection)
-					// Removed navigationTitle here. UserList will handle this.
-			case nil:
-				Text("Select a conversation type")
-			}
+		NavigationSplitView {
+			UnifiedMessageList(node: $node, selection: $destinationSelection)
+				.navigationTitle("Messages")
+				.navigationBarTitleDisplayMode(.large)
+				.navigationBarItems(leading: MeshtasticLogo())
 		} detail: {
-			if let myInfo = node?.myInfo, let channelSelection {
-				ChannelMessageList(myInfo: myInfo, channel: channelSelection)
-					// The toolbar is now defined inside ChannelMessageList.swift
-			} else if let userSelection {
-				UserMessageList(user: userSelection)
-			} else if case .channels = router.navigationState.messages {
-				Text("Select a channel")
-			} else if case .directMessages = router.navigationState.messages {
-				Text("Select a conversation")
+			switch destinationSelection {
+			case .channel(let channel):
+				if let myInfo = node?.myInfo {
+					ChannelMessageList(myInfo: myInfo, channel: channel)
+				} else {
+					ContentUnavailableView("No device connected", systemImage: "antenna.radiowaves.left.and.right.slash")
+				}
+			case .user(let user):
+				UserMessageList(user: user)
+			case nil:
+				ContentUnavailableView("Select a conversation", systemImage: "message")
 			}
-		}.onChange(of: router.navigationState) {
-			setupNavigationState()
 		}
+		.onChange(of: router.navigationState) { setupNavigationState() }
+		.onAppear { setupNavigationState() }
 	}
 
 	private func setupNavigationState() {
@@ -107,30 +48,20 @@ struct Messages: View {
 			node = getNodeInfo(id: nodeId, context: context)
 		}
 
-		guard let state = router.navigationState.messages else {
-			channelSelection = nil
-			userSelection = nil
-			return
-		}
-
-		switch state {
+		switch router.navigationState.messages {
 		case .channels(channelId: let channelId, messageId: _):
-			if let channelId {
-				channelSelection = node?.myInfo?.channels?.first(where: { channel in
-					guard let channel = channel as? ChannelEntity else { return false }
-					return channel.id == channelId
-				}) as? ChannelEntity
-			} else {
-				channelSelection = nil
-				userSelection = nil
+			guard let channelId else { return }
+			if let channel = node?.myInfo?.channels?
+				.compactMap({ $0 as? ChannelEntity })
+				.first(where: { $0.id == channelId }) {
+				destinationSelection = .channel(channel)
 			}
 		case .directMessages(userNum: let userNum, messageId: _):
-			if let userNum {
-				userSelection = getUser(id: userNum, context: context)
-			} else {
-				channelSelection = nil
-				userSelection = nil
-			}
+			guard let userNum else { return }
+			let user = getUser(id: userNum, context: context)
+			destinationSelection = .user(user)
+		case nil:
+			break
 		}
 	}
 }

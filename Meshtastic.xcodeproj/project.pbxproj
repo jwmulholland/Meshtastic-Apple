@@ -250,6 +250,8 @@
 		DDB8F4102A9EE5B400230ECE /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB8F40F2A9EE5B400230ECE /* Messages.swift */; };
 		DDB8F4122A9EE5DD00230ECE /* UserList.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB8F4112A9EE5DD00230ECE /* UserList.swift */; };
 		DDB8F4142A9EE5F000230ECE /* ChannelList.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDB8F4132A9EE5F000230ECE /* ChannelList.swift */; };
+		0C404DA05BBF42C1B40DF073 /* UnifiedMessageList.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC5AFFC90C084238B74A925E /* UnifiedMessageList.swift */; };
+		B4399155053349E9AF18F15D /* ConversationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = C83675F929134D7ABB966874 /* ConversationRow.swift */; };
 		DDC1B81A2AB5377B00C71E39 /* MessagesTips.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDC1B8192AB5377B00C71E39 /* MessagesTips.swift */; };
 		DDC2E15826CE248E0042C5E4 /* MeshtasticApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDC2E15726CE248E0042C5E4 /* MeshtasticApp.swift */; };
 		DDC2E15C26CE248F0042C5E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DDC2E15B26CE248F0042C5E4 /* Assets.xcassets */; };
@@ -617,6 +619,8 @@
 		DDB8F40F2A9EE5B400230ECE /* Messages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messages.swift; sourceTree = "<group>"; };
 		DDB8F4112A9EE5DD00230ECE /* UserList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserList.swift; sourceTree = "<group>"; };
 		DDB8F4132A9EE5F000230ECE /* ChannelList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelList.swift; sourceTree = "<group>"; };
+		DC5AFFC90C084238B74A925E /* UnifiedMessageList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedMessageList.swift; sourceTree = "<group>"; };
+		C83675F929134D7ABB966874 /* ConversationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRow.swift; sourceTree = "<group>"; };
 		DDBA45EC299ED78100DEEDDC /* MeshtasticDataModelV8.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MeshtasticDataModelV8.xcdatamodel; sourceTree = "<group>"; };
 		DDC1B8192AB5377B00C71E39 /* MessagesTips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesTips.swift; sourceTree = "<group>"; };
 		DDC2E15426CE248E0042C5E4 /* Meshtastic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Meshtastic.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1281,6 +1285,8 @@
 				DD9C700C2E8D5A8900106227 /* ChannelMessageRow.swift */,
 				D9C9839E2B79D0C600BDBE6A /* TextMessageField */,
 				DDB8F4132A9EE5F000230ECE /* ChannelList.swift */,
+				DC5AFFC90C084238B74A925E /* UnifiedMessageList.swift */,
+				C83675F929134D7ABB966874 /* ConversationRow.swift */,
 				DD798B062915928D005217CD /* ChannelMessageList.swift */,
 				DDB8F40F2A9EE5B400230ECE /* Messages.swift */,
 				DDB8F4112A9EE5DD00230ECE /* UserList.swift */,
@@ -1776,6 +1782,8 @@
 				231A53782E69ADB900216B99 /* NodeFilterParameters.swift in Sources */,
 				232ED4C52E2C5EDD009DA392 /* TCPConnection.swift in Sources */,
 				DDB8F4142A9EE5F000230ECE /* ChannelList.swift in Sources */,
+				0C404DA05BBF42C1B40DF073 /* UnifiedMessageList.swift in Sources */,
+				B4399155053349E9AF18F15D /* ConversationRow.swift in Sources */,
 				BCB35B4F2E5FC42500B04F60 /* MessageNodeIntent.swift in Sources */,
 				DDD43FE32A78C8900083A3E9 /* MqttClientProxyManager.swift in Sources */,
 				BCD7448D2E0F2FAA00F265A2 /* ContactURLHandler.swift in Sources */,
