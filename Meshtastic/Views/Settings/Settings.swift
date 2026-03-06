@@ -76,14 +76,8 @@ struct Settings: View {
 				}
 			}
 
-			NavigationLink(value: SettingsNavigationState.channels) {
-				Label {
-					Text("Channels")
-				} icon: {
-					Image(systemName: "fibrechannel")
-				}
-			}
-			.disabled(selectedNode > 0 && selectedNode != preferredNodeNum)
+			// Channel management moved to Messages tab (••• menu)
+			// NavigationLink(value: SettingsNavigationState.channels) { ... }
 
 			NavigationLink(value: SettingsNavigationState.security) {
 				Label {

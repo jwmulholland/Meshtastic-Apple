@@ -23,6 +23,24 @@ struct ChannelMessageList: View {
 	@AppStorage("preferredPeripheralNum") private var preferredPeripheralNum = -1
 	@State private var messageToHighlight: Int64 = 0
 	@FetchRequest private var allPrivateMessages: FetchedResults<MessageEntity>
+
+	// Channel config sheet state
+	@State private var channelFormTitle = "Edit Channel"
+	@State private var showingChannelConfig = false
+	@State private var channelIndex: Int32 = 0
+	@State private var channelName = ""
+	@State private var channelKeySize = 16
+	@State private var channelKey = "AQ=="
+	@State private var channelRole = 0
+	@State private var uplink = false
+	@State private var downlink = false
+	@State private var positionPrecision = 32.0
+	@State private var preciseLocation = true
+	@State private var positionsEnabled = true
+	@State private var hasChanges = false
+	@State private var hasValidKey = true
+	@State private var supportedVersion = true
+	private let minimumVersion = "2.2.24"
 	
 	init(myInfo: MyInfoEntity, channel: ChannelEntity) {
 		self.myInfo = myInfo
@@ -40,6 +58,50 @@ struct ChannelMessageList: View {
 		_allPrivateMessages = FetchRequest(fetchRequest: request)
 	}
 	
+	private func populateChannelState() {
+		channelIndex = channel.index
+		channelRole = Int(channel.role)
+		let key = channel.psk?.base64EncodedString() ?? ""
+		channelKey = key
+		if key.isEmpty {
+			channelKeySize = 0
+		} else if key == "AQ==" {
+			channelKeySize = -1
+		} else if key.count == 4 {
+			channelKeySize = 1
+		} else if key.count == 24 {
+			channelKeySize = 16
+		} else if key.count == 32 {
+			channelKeySize = 24
+		} else if key.count == 44 {
+			channelKeySize = 32
+		}
+		channelName = channel.name ?? ""
+		uplink = channel.uplinkEnabled
+		downlink = channel.downlinkEnabled
+		positionPrecision = Double(channel.positionPrecision)
+		if !supportedVersion && channelRole == 1 {
+			positionPrecision = 32
+			preciseLocation = true
+			positionsEnabled = true
+			if channelKey == "AQ==" { positionPrecision = 14; preciseLocation = false }
+		} else if !supportedVersion && channelRole == 2 {
+			positionPrecision = 0; preciseLocation = false; positionsEnabled = false
+		} else {
+			if channelKey == "AQ==" {
+				preciseLocation = false
+				if (positionPrecision > 0 && positionPrecision < 11) || positionPrecision > 14 { positionPrecision = 14 }
+			} else if positionPrecision == 32 {
+				preciseLocation = true; positionsEnabled = true
+			} else {
+				preciseLocation = false
+			}
+			positionsEnabled = positionPrecision != 0
+		}
+		channelFormTitle = "Edit Channel"
+		hasChanges = false
+	}
+
 	func handleInteractionComplete() {
 		markMessagesAsRead()
 		redrawTapbacksTrigger = UUID()
@@ -150,6 +212,111 @@ struct ChannelMessageList: View {
 						mqttTopic: accessoryManager.mqttManager.topic
 					)
 				}
+			}
+			ToolbarItem(placement: .navigationBarTrailing) {
+				Button {
+					populateChannelState()
+					showingChannelConfig = true
+				} label: {
+					Image(systemName: "gear")
+				}
+			}
+		}
+		.sheet(isPresented: $showingChannelConfig) {
+			ChannelForm(
+				title: channelFormTitle,
+				channelIndex: $channelIndex,
+				channelName: $channelName,
+				channelKeySize: $channelKeySize,
+				channelKey: $channelKey,
+				channelRole: $channelRole,
+				uplink: $uplink,
+				downlink: $downlink,
+				positionPrecision: $positionPrecision,
+				preciseLocation: $preciseLocation,
+				positionsEnabled: $positionsEnabled,
+				hasChanges: $hasChanges,
+				hasValidKey: $hasValidKey,
+				supportedVersion: $supportedVersion
+			)
+			.presentationDetents([.large])
+			.presentationDragIndicator(.visible)
+			.onFirstAppear {
+				supportedVersion = accessoryManager.checkIsVersionSupported(forVersion: minimumVersion)
+			}
+			HStack {
+				Button {
+					guard let currentNode = getNodeInfo(id: Int64(preferredPeripheralNum), context: context) else { return }
+					var ch = Channel()
+					ch.index = channel.index
+					ch.role = ChannelRoles(rawValue: channelRole)?.protoEnumValue() ?? .secondary
+					ch.settings.name = channelName
+					ch.settings.psk = Data(base64Encoded: channelKey) ?? Data()
+					ch.settings.uplinkEnabled = uplink
+					ch.settings.downlinkEnabled = downlink
+					ch.settings.moduleSettings.positionPrecision = UInt32(positionPrecision)
+					channel.role = Int32(channelRole)
+					channel.name = channelName
+					channel.psk = Data(base64Encoded: channelKey) ?? Data()
+					channel.uplinkEnabled = uplink
+					channel.downlinkEnabled = downlink
+					channel.positionPrecision = Int32(positionPrecision)
+					guard let mutableChannels = myInfo.channels?.mutableCopy() as? NSMutableOrderedSet else { return }
+					if mutableChannels.contains(channel) {
+						let replaceChannel = mutableChannels.first(where: { channel.psk == ($0 as AnyObject).psk && channel.name == ($0 as AnyObject).name })
+						mutableChannels.replaceObject(at: mutableChannels.index(of: replaceChannel as Any), with: channel)
+					} else {
+						mutableChannels.add(channel)
+					}
+					myInfo.channels = mutableChannels.copy() as? NSOrderedSet
+					context.refresh(channel, mergeChanges: true)
+					if ch.role != Channel.Role.disabled {
+						do {
+							try context.save()
+							Logger.data.info("💾 Saved Channel: \(ch.settings.name, privacy: .public)")
+						} catch {
+							context.rollback()
+							Logger.data.error("Unresolved Core Data error saving channel: \(error as NSError, privacy: .public)")
+						}
+					} else {
+						for object in channel.allPrivateMessages { context.delete(object) }
+						let nodesFetch = NSFetchRequest<NodeInfoEntity>(entityName: "NodeInfoEntity")
+						let allNodes = (try? context.fetch(nodesFetch)) ?? []
+						for n in allNodes where n.channel == ch.index { context.delete(n) }
+						context.delete(channel)
+						do {
+							try context.save()
+							Logger.data.info("💾 Deleted Channel: \(ch.settings.name, privacy: .public)")
+						} catch {
+							context.rollback()
+							Logger.data.error("Unresolved Core Data error deleting channel: \(error as NSError, privacy: .public)")
+						}
+					}
+					Task {
+						_ = try await accessoryManager.saveChannel(channel: ch, fromUser: currentNode.user!, toUser: currentNode.user!)
+						Task { @MainActor in
+							showingChannelConfig = false
+							hasChanges = false
+						}
+						accessoryManager.mqttManager.connectFromConfigSettings(node: currentNode)
+					}
+				} label: {
+					Label("Save", systemImage: "square.and.arrow.down")
+				}
+				.disabled(!accessoryManager.isConnected)
+				.buttonStyle(.bordered)
+				.buttonBorderShape(.capsule)
+				.controlSize(.large)
+				.padding(.bottom)
+				#if targetEnvironment(macCatalyst)
+				Button { showingChannelConfig = false } label: {
+					Label("Close", systemImage: "xmark")
+				}
+				.buttonStyle(.bordered)
+				.buttonBorderShape(.capsule)
+				.controlSize(.large)
+				.padding(.bottom)
+				#endif
 			}
 		}
 	}

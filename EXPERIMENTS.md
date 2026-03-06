@@ -74,14 +74,6 @@ Changes are grouped by complexity and dependency. Start with Phase 1 (simple ren
 - Rewrite Messages.swift
 - Register new files in project.pbxproj
 
-#### Need to verify recency sorting:
-Send a message to someone lower in the list (like Pete or Markbot). After sending, that conversation should jump to the top of the list.
-
-What we should see when messages exist:
-- Timestamps on the right side of each row
-- Last message preview below the name
-- Unread blue dot on left when unread 
-
 ### 3.2 Move Nodes list to Messages tab as sub-navigation
 - **Current:** Nodes is its own tab or separate navigation area
 - **New:** Accessible from Messages tab via "Add+" button

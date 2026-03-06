@@ -14,7 +14,7 @@ Redesigning Meshtastic iOS app for Burning Man 2026 and broader community use. M
 
 ## Foundational Innovations
 1. **App-level persistent identity** - User identity decoupled from radio hardware. One person, multiple radios, consistent identity across devices.
-2. **Preset/QR code configuration** - Instant network onboarding without technical knowledge
+2. **Dirt-simple configuration** - Instant network onboarding without technical knowledge. Management of configurations to be portable and easily identifiable while remaining mostly hidden for most users.
 
 ## Current Navigation Structure
 **Now:** Messages | Device | Nodes | Map | Settings
@@ -24,20 +24,21 @@ Redesigning Meshtastic iOS app for Burning Man 2026 and broader community use. M
 **Device tab** consolidates features from Connect + Nodes tabs, simplified for non-technical users. Nodes tab will be hidden once consolidation complete - its contact-relevant features move to Messages.
 
 ## Key Features (Not Yet Implemented)
-- **Ping system:** "Flares" (urgent signals) + "Beacons" (social invitations)
-- **Contact verification:** Track in-person vs. remote additions with verification checkmarks
-- **Location precision controls:** Per-contact choice of exact GPS, approximate, or general area
+- **Savable and Sharable Location Pins:** Easily marked and shared map locations with a named title. Multi-functional and backwards compatible (through markdown-like human-readable encoding)
 - **Manual stealth mode:** User-controlled location sharing separate from precision settings
 
 ## Changes Made
-- ✅ Renamed Connect → Device (file: Device.swift)
+- ✅ Renamed Connect → Device (file: DeviceView.swift to avoid naming collision)
 - ✅ Renamed Mesh Map → Map
-- ✅ Moved ‘Nodes’ detail view for connected device wholesale to Device tab
-- ✅ Filtered connected device out of Nodes list
-- ✅ Move battery display to top card in Device tab, removed BatteryCompact from underneath the avatar
-- ⏳ Will hide Nodes tab after consolidation
-- ⏳ Will need to adjust visual design of battery indicator for instant readability
-- ⏳ Will need to continue to simplify device tab including removing redundant avatar
+- ✅ Reordered tabs: Messages | Map | Nodes | Device | Settings
+- ✅ Device tab: Moved Nodes detail view wholesale (Hardware, metrics, logs, administration)
+- ✅ Device tab: Removed Actions section (Hide alerts, Remove from favorites)
+- ✅ Messages: Unified list combining channels and direct messages
+- ✅ Messages: Filter controls (All, Channels, Direct Messages)
+- ✅ Messages: Recency sorting (most recent conversations first)
+- ✅ Channel management: Gear icon in channel threads opens edit form
+- ✅ Channel management: ••• menu with "Add Channel" and "Manage Channels"
+- ✅ Channel management: Fixed UX issues (chevron icons, dismiss behavior)
 
 ## Architecture Notes
 - SwiftUI views
@@ -60,8 +61,17 @@ Redesigning Meshtastic iOS app for Burning Man 2026 and broader community use. M
 - Contacts, not Nodes (when referring to people)
 
 ## Next Iterations
-1. Complete Device tab consolidation
-2. Simplify Device tab (remove technical metadata, keep functional controls)
-3. Hide Nodes tab
+1. Complete Nodes tab consolidation
+2. Hide Nodes tab (move remaining contact features to Messages)
+3. Messages: Add node/contact management via "Add+" button
 4. Messages tab: implement contact-focused model
-5. Contact verification and location controls
+5. Implement contact verification and location controls
+6. Review channel disabling behavior (role=0)
+
+## Known Issues / Future Work
+- Channel disabling behavior unclear (role=0 triggers deletion, needs UX review)
+- Recency sorting needs testing with real message data:
+  - Verify conversations reorder when new messages arrive
+  - Confirm timestamps display correctly
+  - Check unread blue dot behavior
+- Device tab needs simplification pass

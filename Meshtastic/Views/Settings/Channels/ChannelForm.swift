@@ -10,6 +10,10 @@ import MapKit
 
 struct ChannelForm: View {
 
+	var title: String = "Channel"
+	/// When true, renders the Form directly without its own NavigationStack.
+	/// Use this when pushing via NavigationLink inside an existing NavigationStack.
+	var embedded: Bool = false
 	@Binding var channelIndex: Int32
 	@Binding var channelName: String
 	@Binding var channelKeySize: Int
@@ -23,230 +27,263 @@ struct ChannelForm: View {
 	@Binding var hasChanges: Bool
 	@Binding var hasValidKey: Bool
 	@Binding var supportedVersion: Bool
+	/// When non-nil, a destructive "Delete Channel" section is shown at the bottom.
+	var onDelete: (() -> Void)? = nil
+	/// Set to true during a revert operation to suppress side-effect onChange handlers.
+	var isReverting: Binding<Bool> = .constant(false)
 
 	var body: some View {
-		NavigationStack {
-			Form {
-				Section(header: Text("Channel Details")) {
-					HStack {
-						Text("Name")
-						Spacer()
-						TextField(
-							"Channel Name",
-							text: $channelName
-						)
-						.disableAutocorrection(true)
-						.keyboardType(.alphabet)
-						.foregroundColor(Color.gray)
-						.onChange(of: channelName) {
-							channelName = channelName.replacing(" ", with: "")
-							var totalBytes = channelName.utf8.count
-							// Only mess with the value if it is too big
-							while totalBytes > 11 {
-								channelName = String(channelName.dropLast())
-								totalBytes = channelName.utf8.count
-							}
-							hasChanges = true
-						}
-					}
-					HStack {
-						Picker("Key Size", selection: $channelKeySize) {
-							Text("Empty").tag(0)
-							Text("Default").tag(-1)
-							Text("1 byte").tag(1)
-							Text("128 bit").tag(16)
-							Text("256 bit").tag(32)
-						}
-						.pickerStyle(DefaultPickerStyle())
-						Spacer()
-						Button {
-							if channelKeySize == -1 {
-								channelKey = "AQ=="
-							} else {
-								let key = generateChannelKey(size: channelKeySize)
-								channelKey = key
-							}
-						} label: {
-							Image(systemName: "lock.rotation")
-								.font(.title)
-						}
-						.buttonStyle(.bordered)
-						.buttonBorderShape(.capsule)
-						.controlSize(.small)
-					}
-					HStack(alignment: .center) {
-						Text("Key")
-						Spacer()
-						TextField(
-							"Key",
-							text: $channelKey,
-							axis: .vertical
-						)
-						.padding(6)
-						.disableAutocorrection(true)
-						.keyboardType(.alphabet)
-						.foregroundColor(Color.gray)
-						.textSelection(.enabled)
-						.background(
-							RoundedRectangle(cornerRadius: 10.0)
-								.stroke(
-									hasValidKey ?
-									Color.clear :
-										Color.red
-									, lineWidth: 2.0)
+		if embedded {
+			formContent
+		} else {
+			NavigationStack { formContent }
+		}
+	}
 
-						)
-						.onChange(of: channelKey) {
-
-							let tempKey = Data(base64Encoded: channelKey) ?? Data()
-							if tempKey.count == channelKeySize || channelKeySize == -1 {
-								hasValidKey = true
-							} else {
-								hasValidKey = false
-							}
-							hasChanges = true
+	@ViewBuilder
+	private var formContent: some View {
+		Form {
+			Section(header: Text("Channel Details")) {
+				HStack {
+					Text("Name")
+					Spacer()
+					TextField(
+						"Channel Name",
+						text: $channelName
+					)
+					.disableAutocorrection(true)
+					.keyboardType(.alphabet)
+					.foregroundColor(Color.gray)
+					.onChange(of: channelName) {
+						channelName = channelName.replacing(" ", with: "")
+						var totalBytes = channelName.utf8.count
+						// Only mess with the value if it is too big
+						while totalBytes > 11 {
+							channelName = String(channelName.dropLast())
+							totalBytes = channelName.utf8.count
 						}
-						.disabled(channelKeySize <= 0)
+						guard !isReverting.wrappedValue else { return }
+						hasChanges = true
 					}
-					HStack {
-						if channelRole == 1 {
-							Picker("Channel Role", selection: $channelRole) {
-								Text("Primary").tag(1)
-							}
-							.pickerStyle(.automatic)
-							.disabled(true)
+				}
+				HStack {
+					Picker("Key Size", selection: $channelKeySize) {
+						Text("Empty").tag(0)
+						Text("Default").tag(-1)
+						Text("1 byte").tag(1)
+						Text("128 bit").tag(16)
+						Text("256 bit").tag(32)
+					}
+					.pickerStyle(DefaultPickerStyle())
+					Spacer()
+					Button {
+						if channelKeySize == -1 {
+							channelKey = "AQ=="
 						} else {
-							Text("Channel Role")
-							Spacer()
-							Picker("Channel Role", selection: $channelRole) {
-								Text("Disabled").tag(0)
-								Text("Secondary").tag(2)
-							}
-							.pickerStyle(.segmented)
+							let key = generateChannelKey(size: channelKeySize)
+							channelKey = key
 						}
+					} label: {
+						Image(systemName: "lock.rotation")
+							.font(.title)
 					}
+					.buttonStyle(.bordered)
+					.buttonBorderShape(.capsule)
+					.controlSize(.small)
 				}
+				HStack(alignment: .center) {
+					Text("Key")
+					Spacer()
+					TextField(
+						"Key",
+						text: $channelKey,
+						axis: .vertical
+					)
+					.padding(6)
+					.disableAutocorrection(true)
+					.keyboardType(.alphabet)
+					.foregroundColor(Color.gray)
+					.textSelection(.enabled)
+					.background(
+						RoundedRectangle(cornerRadius: 10.0)
+							.stroke(
+								hasValidKey ?
+								Color.clear :
+									Color.red
+								, lineWidth: 2.0)
 
-				Section(header: Text("Position")) {
-					VStack(alignment: .leading) {
-						Toggle(isOn: $positionsEnabled) {
-							Label(channelRole == 1 ? "Positions Enabled" : "Allow Position Requests", systemImage: positionsEnabled ? "mappin" : "mappin.slash")
+					)
+					.onChange(of: channelKey) {
+						let tempKey = Data(base64Encoded: channelKey) ?? Data()
+						if tempKey.count == channelKeySize || channelKeySize == -1 {
+							hasValidKey = true
+						} else {
+							hasValidKey = false
 						}
-						.toggleStyle(SwitchToggleStyle(tint: .accentColor))
-						.disabled(!supportedVersion)
+						guard !isReverting.wrappedValue else { return }
+						hasChanges = true
 					}
-
-					if positionsEnabled {
-						if (channelKey != "AQ==" && channelKeySize > 1)  && channelRole > 0 {
-							VStack(alignment: .leading) {
-								Toggle(isOn: $preciseLocation) {
-									Label("Precise Location", systemImage: "scope")
-								}
-								.toggleStyle(SwitchToggleStyle(tint: .accentColor))
-								.disabled(!supportedVersion)
-								.listRowSeparator(.visible)
-								.onChange(of: preciseLocation) { _, pl in
-									if pl == false {
-										positionPrecision = 15
-									}
-								}
-							}
+					.disabled(channelKeySize <= 0)
+				}
+				HStack {
+					if channelRole == 1 {
+						Picker("Channel Role", selection: $channelRole) {
+							Text("Primary").tag(1)
 						}
-						if !preciseLocation {
-							VStack(alignment: .leading) {
-								Label("Approximate Location", systemImage: "location.slash.circle.fill")
-
-								Slider(value: $positionPrecision, in: 12...15, step: 1) {
-								} minimumValueLabel: {
-									Image(systemName: "plus")
-								} maximumValueLabel: {
-									Image(systemName: "minus")
-								}
-								Text(PositionPrecision(rawValue: Int(positionPrecision))?.description ?? "")
-									.foregroundColor(.gray)
-									.font(.callout)
-							}
-						}
-					}
-				}
-				Section(header: Text("MQTT")) {
-					Toggle(isOn: $uplink) {
-						Label("Uplink Enabled", systemImage: "arrowshape.up")
-					}
-					.toggleStyle(SwitchToggleStyle(tint: .accentColor))
-					.listRowSeparator(.visible)
-
-					Toggle(isOn: $downlink) {
-						Label("Downlink Enabled", systemImage: "arrowshape.down")
-					}
-					.toggleStyle(SwitchToggleStyle(tint: .accentColor))
-				}
-			}
-			.onChange(of: channelName) {
-				hasChanges = true
-			}
-			.onChange(of: channelKeySize) {
-				if channelKeySize == -1 {
-					channelKey = "AQ=="
-				} else {
-					let key = generateChannelKey(size: channelKeySize)
-					channelKey = key
-				}
-				hasChanges = true
-			}
-			.onChange(of: channelKey) {
-				hasChanges = true
-			}
-			.onChange(of: channelKeySize) {
-				if channelKeySize == -1 {
-					if channelRole == 0 {
-						preciseLocation = false
-					}
-					channelKey = "AQ=="
-				}
-			}
-			.onChange(of: channelRole) {
-				hasChanges = true
-			}
-			.onChange(of: preciseLocation) { _, loc in
-				if loc == true {
-					if channelKey == "AQ==" || channelKeySize <= 1 {
-						preciseLocation = false
+						.pickerStyle(.automatic)
+						.disabled(true)
 					} else {
-						positionPrecision = 32
+						Text("Channel Role")
+						Spacer()
+						Picker("Channel Role", selection: $channelRole) {
+							Text("Disabled").tag(0)
+							Text("Secondary").tag(2)
+						}
+						.pickerStyle(.segmented)
 					}
-				} else {
-					positionPrecision = 14
 				}
-				hasChanges = true
 			}
-			.onChange(of: positionPrecision) {
-				hasChanges = true
-			}
-			.onChange(of: positionsEnabled) { _, pe in
-				if pe {
-					if positionPrecision == 0 {
-						positionPrecision = 15
+
+			Section(header: Text("Position")) {
+				VStack(alignment: .leading) {
+					Toggle(isOn: $positionsEnabled) {
+						Label(channelRole == 1 ? "Positions Enabled" : "Allow Position Requests", systemImage: positionsEnabled ? "mappin" : "mappin.slash")
 					}
-				} else {
-					positionPrecision = 0
+					.toggleStyle(SwitchToggleStyle(tint: .accentColor))
+					.disabled(!supportedVersion)
 				}
-				hasChanges = true
+
+				if positionsEnabled {
+					if (channelKey != "AQ==" && channelKeySize > 1)  && channelRole > 0 {
+						VStack(alignment: .leading) {
+							Toggle(isOn: $preciseLocation) {
+								Label("Precise Location", systemImage: "scope")
+							}
+							.toggleStyle(SwitchToggleStyle(tint: .accentColor))
+							.disabled(!supportedVersion)
+							.listRowSeparator(.visible)
+							.onChange(of: preciseLocation) { _, pl in
+								if pl == false {
+									positionPrecision = 15
+								}
+							}
+						}
+					}
+					if !preciseLocation {
+						VStack(alignment: .leading) {
+							Label("Approximate Location", systemImage: "location.slash.circle.fill")
+
+							Slider(value: $positionPrecision, in: 12...15, step: 1) {
+							} minimumValueLabel: {
+								Image(systemName: "plus")
+							} maximumValueLabel: {
+								Image(systemName: "minus")
+							}
+							Text(PositionPrecision(rawValue: Int(positionPrecision))?.description ?? "")
+								.foregroundColor(.gray)
+								.font(.callout)
+						}
+					}
+				}
 			}
-			.onChange(of: uplink) {
-				hasChanges = true
+			Section(header: Text("MQTT")) {
+				Toggle(isOn: $uplink) {
+					Label("Uplink Enabled", systemImage: "arrowshape.up")
+				}
+				.toggleStyle(SwitchToggleStyle(tint: .accentColor))
+				.listRowSeparator(.visible)
+
+				Toggle(isOn: $downlink) {
+					Label("Downlink Enabled", systemImage: "arrowshape.down")
+				}
+				.toggleStyle(SwitchToggleStyle(tint: .accentColor))
 			}
-			.onChange(of: downlink) {
-				hasChanges = true
-			}
-			.onFirstAppear {
-				let tempKey = Data(base64Encoded: channelKey) ?? Data()
-				if tempKey.count == channelKeySize || channelKeySize == -1 {
-					hasValidKey = true
-				} else {
-					hasValidKey = false
+			if let onDelete {
+				Section {
+					Button(role: .destructive, action: onDelete) {
+						Label("Delete Channel", systemImage: "trash")
+							.frame(maxWidth: .infinity)
+					}
+					.disabled(channelRole == 1)
 				}
 			}
 		}
+		.safeAreaInset(edge: .bottom) { Color.clear.frame(height: 44) }
+		.onChange(of: channelName) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onChange(of: channelKeySize) {
+			guard !isReverting.wrappedValue else { return }
+			if channelKeySize == -1 {
+				channelKey = "AQ=="
+			} else {
+				let key = generateChannelKey(size: channelKeySize)
+				channelKey = key
+			}
+			hasChanges = true
+		}
+		.onChange(of: channelKey) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onChange(of: channelKeySize) {
+			guard !isReverting.wrappedValue else { return }
+			if channelKeySize == -1 {
+				if channelRole == 0 {
+					preciseLocation = false
+				}
+				channelKey = "AQ=="
+			}
+		}
+		.onChange(of: channelRole) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onChange(of: preciseLocation) { _, loc in
+			guard !isReverting.wrappedValue else { return }
+			if loc == true {
+				if channelKey == "AQ==" || channelKeySize <= 1 {
+					preciseLocation = false
+				} else {
+					positionPrecision = 32
+				}
+			} else {
+				positionPrecision = 14
+			}
+			hasChanges = true
+		}
+		.onChange(of: positionPrecision) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onChange(of: positionsEnabled) { _, pe in
+			guard !isReverting.wrappedValue else { return }
+			if pe {
+				if positionPrecision == 0 {
+					positionPrecision = 15
+				}
+			} else {
+				positionPrecision = 0
+			}
+			hasChanges = true
+		}
+		.onChange(of: uplink) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onChange(of: downlink) {
+			guard !isReverting.wrappedValue else { return }
+			hasChanges = true
+		}
+		.onFirstAppear {
+			let tempKey = Data(base64Encoded: channelKey) ?? Data()
+			if tempKey.count == channelKeySize || channelKeySize == -1 {
+				hasValidKey = true
+			} else {
+				hasValidKey = false
+			}
+		}
+		.navigationTitle(title)
 	}
 }
