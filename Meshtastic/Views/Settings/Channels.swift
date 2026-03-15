@@ -371,12 +371,13 @@ struct Channels: View {
 	}
 }
 
-fileprivate struct ChannelEditView: View {
+struct ChannelEditView: View {
 	@Environment(\.managedObjectContext) var context
 	@EnvironmentObject var accessoryManager: AccessoryManager
 	@Environment(\.dismiss) private var dismiss
 	@ObservedObject var channel: ChannelEntity
 	var node: NodeInfoEntity?
+	var isSheet: Bool = false
 
 	@State private var channelIndex: Int32
 	@State private var channelName: String
@@ -419,9 +420,10 @@ fileprivate struct ChannelEditView: View {
 		animation: .default
 	) private var nodes: FetchedResults<NodeInfoEntity>
 
-	init(channel: ChannelEntity, node: NodeInfoEntity?) {
+	init(channel: ChannelEntity, node: NodeInfoEntity?, isSheet: Bool = false) {
 		self.channel = channel
 		self.node = node
+		self.isSheet = isSheet
 		let key = channel.psk?.base64EncodedString() ?? ""
 		var keySize = 16
 		if key.isEmpty { keySize = 0 }
@@ -489,6 +491,11 @@ fileprivate struct ChannelEditView: View {
 		.onChange(of: preciseLocation) { scheduleSave() }
 		.onChange(of: positionPrecision) { scheduleSave() }
 		.toolbar {
+			if isSheet {
+				ToolbarItem(placement: .navigationBarTrailing) {
+					Button("Done") { dismiss() }
+				}
+			}
 			ToolbarItem(placement: .navigationBarTrailing) {
 				Button {
 					revert()

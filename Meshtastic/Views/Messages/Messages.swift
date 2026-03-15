@@ -52,7 +52,7 @@ struct Messages: View {
 			switch destinationSelection {
 			case .channel(let channel):
 				if let myInfo = node?.myInfo {
-					ChannelMessageList(myInfo: myInfo, channel: channel)
+					ChannelMessageList(myInfo: myInfo, channel: channel, node: node)
 				} else {
 					ContentUnavailableView("No device connected", systemImage: "antenna.radiowaves.left.and.right.slash")
 				}
