@@ -488,6 +488,12 @@ fileprivate struct ChannelEditView: View {
 		.onChange(of: positionsEnabled) { scheduleSave() }
 		.onChange(of: preciseLocation) { scheduleSave() }
 		.onChange(of: positionPrecision) { scheduleSave() }
+		.onDisappear {
+			if hasChanges {
+				saveTask?.cancel()
+				saveToDevice()
+			}
+		}
 		.toolbar {
 			ToolbarItem(placement: .navigationBarTrailing) {
 				Button {
@@ -516,7 +522,7 @@ fileprivate struct ChannelEditView: View {
 	// MARK: - Autosave
 
 	private func scheduleSave() {
-		guard accessoryManager.isConnected, !isReverting else { return }
+		guard !isReverting else { return }
 		saveTask?.cancel()
 		saveTask = Task {
 			try await Task.sleep(nanoseconds: 500_000_000)
@@ -557,9 +563,11 @@ fileprivate struct ChannelEditView: View {
 			context.rollback()
 			Logger.data.error("Unresolved Core Data error autosaving channel: \(error as NSError, privacy: .public)")
 		}
-		Task {
-			_ = try await accessoryManager.saveChannel(channel: ch, fromUser: currentNode.user!, toUser: currentNode.user!)
-			accessoryManager.mqttManager.connectFromConfigSettings(node: currentNode)
+		if accessoryManager.isConnected {
+			Task {
+				_ = try await accessoryManager.saveChannel(channel: ch, fromUser: currentNode.user!, toUser: currentNode.user!)
+				accessoryManager.mqttManager.connectFromConfigSettings(node: currentNode)
+			}
 		}
 	}
 
