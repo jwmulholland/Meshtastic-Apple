@@ -371,7 +371,7 @@ struct Channels: View {
 	}
 }
 
-fileprivate struct ChannelEditView: View {
+struct ChannelEditView: View {
 	@Environment(\.managedObjectContext) var context
 	@EnvironmentObject var accessoryManager: AccessoryManager
 	@Environment(\.dismiss) private var dismiss
